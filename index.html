@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexGen Solar — Operations</title>
+<style>
+:root{
+  --bg-0:#0B0F14;--bg-1:#11161D;--bg-2:#161D26;--bg-3:#1C2530;
+  --border:#27313D;--border-strong:#34404D;
+  --text-primary:#E8EDF2;--text-secondary:#9DAAB8;--text-muted:#6B7785;
+  --blue:#3D8BDB;--green:#2EA371;--orange:#E0942C;--purple:#8B7FE8;--red:#E2574C;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(ellipse 1200px 800px at 50% -10%,#16202C 0%,var(--bg-0) 55%);color:var(--text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;padding:20px}
+.app{max-width:1100px;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.logo{font-size:18px;font-weight:700;letter-spacing:-.02em}.logo span{color:var(--blue)}
+.logo-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.clock{font-size:13px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.sync-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--bg-1);border-radius:10px;border:1px solid var(--border)}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0}
+.sync-dot.live{background:var(--green);animation:pulse 1.5s infinite}
+.sync-dot.error{background:var(--red)}
+.sync-label{font-size:12px;color:var(--text-secondary);flex:1}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+button{background:var(--bg-3);color:var(--text-primary);border:1px solid var(--border-strong);border-radius:8px;padding:7px 13px;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s}
+button:hover{background:#222D3A;border-color:#3D4A5A}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:500}
+button.primary:hover{background:#4A97E5}
+button.success{background:var(--green);border-color:var(--green);color:#fff;font-weight:500}
+button.success:hover{background:#3AB882}
+button.danger{background:var(--red);border-color:var(--red);color:#fff}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.metric{background:var(--bg-1);border-radius:10px;padding:13px;border:1px solid var(--border)}
+.metric-label{font-size:10px;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.metric-val{font-size:20px;font-weight:600}
+.metric-sub{font-size:11px;color:var(--text-secondary);margin-top:2px}
+.nav-tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:10px}
+.nav-tab{font-size:12.5px;padding:7px 16px;border-radius:8px;border:1px solid transparent;cursor:pointer;color:var(--text-secondary);background:transparent;transition:all .15s}
+.nav-tab:hover{color:var(--text-primary);background:var(--bg-2)}
+.nav-tab.active{background:var(--bg-2);color:var(--text-primary);border-color:var(--border-strong)}
+.panel{background:var(--bg-1);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px}
+.panel-title{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px}
+/* Inventory table */
+.inv-table{width:100%;border-collapse:collapse}
+.inv-table th{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.inv-table td{padding:9px 10px;border-bottom:1px solid #1A222C;font-size:13px;vertical-align:middle}
+.inv-table tr:last-child td{border-bottom:none}
+.inv-table tr:hover td{background:var(--bg-2)}
+.badge{font-size:10px;padding:3px 8px;border-radius:5px;font-weight:500}
+.b-ok{background:rgba(46,163,113,.15);color:#5BC98A}
+.b-low{background:rgba(224,148,44,.15);color:#E0A84C}
+.b-crit{background:rgba(226,87,76,.15);color:#E2756C}
+.b-none{background:rgba(107,119,133,.15);color:#9DAAB8}
+.b-run{background:rgba(61,139,219,.15);color:#5DA3E5}
+.b-pend{background:rgba(224,148,44,.15);color:#E0A84C}
+/* Forms */
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+.form-group input,.form-group select{background:var(--bg-0);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;transition:border-color .15s}
+.form-group input:focus,.form-group select:focus{border-color:var(--blue)}
+.form-group select option{background:var(--bg-1)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+/* Log */
+.log-area{background:var(--bg-0);border-radius:8px;padding:12px;min-height:120px;max-height:240px;overflow-y:auto;font-size:11.5px;line-height:1.8;font-family:"SF Mono",Monaco,monospace;border:1px solid var(--border)}
+.lline{padding:1px 0;border-bottom:1px solid #1A222C}.lline:last-child{border-bottom:none}
+.ltime{color:var(--text-muted);margin-right:8px}
+.lceo{color:var(--blue)}.lmgr{color:var(--green)}.lmkt{color:var(--orange)}.lacc{color:var(--purple)}.lsales{color:#E0775A}.lsys{color:var(--text-muted)}.lerr{color:var(--red)}.lok{color:#5BC98A}
+/* Output */
+.output-box{background:var(--bg-0);border-radius:8px;padding:14px;font-size:13px;line-height:1.85;color:var(--text-primary);min-height:100px;white-space:pre-wrap;border:1px solid var(--border)}
+/* Agents grid */
+.agents-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.agent-card{background:var(--bg-1);border:1px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;transition:all .15s}
+.agent-card:hover{border-color:var(--border-strong);background:var(--bg-2)}
+.agent-card.active{border-color:var(--blue);background:var(--bg-2)}
+.agent-avatar{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:8px}
+.agent-name{font-size:12px;font-weight:600;margin-bottom:2px}
+.agent-role{font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.3}
+.sdot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px}
+.slabel{font-size:11px}
+.s-idle .sdot{background:var(--text-muted)}.s-idle .slabel{color:var(--text-muted)}
+.s-working .sdot{background:var(--green);animation:pulse 1.2s infinite}.s-working .slabel{color:var(--green)}
+.s-done .sdot{background:#5BC98A}.s-done .slabel{color:#5BC98A}
+.s-error .sdot{background:var(--red)}.s-error .slabel{color:var(--red)}
+.s-waiting .sdot{background:var(--orange)}.s-waiting .slabel{color:var(--orange)}
+.pbar{height:3px;background:var(--border);border-radius:2px;margin-top:7px;overflow:hidden}
+.pfill{height:100%;border-radius:2px;transition:width .5s ease}
+/* History */
+.hist-table{width:100%;border-collapse:collapse}
+.hist-table th{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.hist-table td{padding:8px 10px;border-bottom:1px solid #1A222C;font-size:12.5px}
+.hist-table tr:last-child td{border-bottom:none}
+/* Task rows */
+.task-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1A222C;font-size:12.5px;gap:8px}
+.task-row:last-child{border-bottom:none}
+.task-name{flex:1;color:var(--text-secondary)}
+input[type=number]::-webkit-inner-spin-button{opacity:1}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+.divider{height:1px;background:var(--border);margin:14px 0}
+.section-title{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+.inline-edit{background:var(--bg-0);border:1px solid var(--border);border-radius:5px;padding:4px 7px;color:var(--text-primary);font-size:12px;width:90px;font-family:inherit}
+@media(max-width:800px){.agents-grid{grid-template-columns:repeat(3,1fr)}.metrics{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="topbar">
+  <div>
+    <div class="logo"><span>NexGen</span> Solar</div>
+    <div class="logo-sub">Operations &amp; Autonomous Agents</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="clock" id="clock">--:--:--</div>
+    <div id="cycle-badge" style="font-size:11px;padding:4px 12px;border-radius:8px;background:var(--bg-2);border:1px solid var(--border);color:var(--text-muted)">Standby</div>
+  </div>
+</div>
+
+<div class="sync-row">
+  <div class="sync-dot" id="sync-dot"></div>
+  <div class="sync-label" id="sync-label">Not connected</div>
+  <button onclick="loadData()" style="font-size:11px;padding:4px 10px">↻ Sync</button>
+</div>
+
+<div class="metrics">
+  <div class="metric"><div class="metric-label">Stock value</div><div class="metric-val" id="m-rev">PKR —</div><div class="metric-sub" id="m-rev-sub">Awaiting sync</div></div>
+  <div class="metric"><div class="metric-label">SKUs</div><div class="metric-val" id="m-sku">—</div><div class="metric-sub" id="m-sku-sub">Awaiting sync</div></div>
+  <div class="metric"><div class="metric-label">Posts created</div><div class="metric-val" id="m-posts">0</div><div class="metric-sub">WA · FB · IG</div></div>
+  <div class="metric"><div class="metric-label">Alerts</div><div class="metric-val" id="m-alerts" style="color:var(--red)">0</div><div class="metric-sub">Missing prices / low stock</div></div>
+</div>
+
+<div class="nav-tabs">
+  <div class="nav-tab active" onclick="showPage('inventory',this)">📦 Inventory</div>
+  <div class="nav-tab" onclick="showPage('stock-in',this)">📥 Stock In</div>
+  <div class="nav-tab" onclick="showPage('stock-out',this)">📤 Stock Out</div>
+  <div class="nav-tab" onclick="showPage('history',this)">🕓 History</div>
+  <div class="nav-tab" onclick="showPage('agents',this)">🤖 Agents</div>
+  <div class="nav-tab" onclick="showPage('report',this)">📊 CEO Report</div>
+</div>
+
+<!-- INVENTORY PAGE -->
+<div id="page-inventory">
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="panel-title" style="margin-bottom:0">Live inventory</div>
+      <button onclick="showPage('stock-in',document.querySelectorAll('.nav-tab')[1])" class="success">+ Add stock</button>
+    </div>
+    <table class="inv-table" id="inv-table">
+      <thead><tr><th>Product</th><th>Stock</th><th>Price (PKR)</th><th>Stock value</th><th>Status</th><th>Edit price</th></tr></thead>
+      <tbody id="inv-body"><tr><td colspan="6" style="color:var(--text-muted);padding:20px 10px">Sync inventory to load data</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- STOCK IN PAGE -->
+<div id="page-stock-in" style="display:none">
+  <div class="panel">
+    <div class="panel-title">📥 Add stock in</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Product</label>
+        <select id="si-product"><option value="">— select product —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Quantity</label>
+        <input type="number" id="si-qty" placeholder="e.g. 50" min="1">
+      </div>
+      <div class="form-group">
+        <label>Price per unit (PKR)</label>
+        <input type="number" id="si-price" placeholder="e.g. 24500">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Staff name</label>
+        <input type="text" id="si-staff" placeholder="e.g. Shafay">
+      </div>
+      <div class="form-group">
+        <label>Note (optional)</label>
+        <input type="text" id="si-note" placeholder="e.g. New shipment from supplier">
+      </div>
+    </div>
+    <button onclick="submitStockIn()" class="success">✓ Record stock in</button>
+    <div id="si-msg" style="margin-top:10px;font-size:13px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">➕ Add new product</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Product name</label>
+        <input type="text" id="np-name" placeholder="e.g. Jinko 580W Panel">
+      </div>
+      <div class="form-group">
+        <label>Initial quantity</label>
+        <input type="number" id="np-qty" placeholder="e.g. 10" min="0">
+      </div>
+      <div class="form-group">
+        <label>Price per unit (PKR)</label>
+        <input type="number" id="np-price" placeholder="e.g. 28000">
+      </div>
+    </div>
+    <button onclick="addNewProduct()" class="primary">+ Add product</button>
+    <div id="np-msg" style="margin-top:10px;font-size:13px"></div>
+  </div>
+</div>
+
+<!-- STOCK OUT PAGE -->
+<div id="page-stock-out" style="display:none">
+  <div class="panel">
+    <div class="panel-title">📤 Record stock out / sale</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Product</label>
+        <select id="so-product"><option value="">— select product —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Quantity sold / issued</label>
+        <input type="number" id="so-qty" placeholder="e.g. 5" min="1">
+      </div>
+      <div class="form-group">
+        <label>Sale price per unit (PKR)</label>
+        <input type="number" id="so-price" placeholder="e.g. 26000">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Customer name</label>
+        <input type="text" id="so-customer" placeholder="e.g. Ahmed Raza">
+      </div>
+      <div class="form-group">
+        <label>Invoice / reference</label>
+        <input type="text" id="so-ref" placeholder="e.g. INV-02">
+      </div>
+      <div class="form-group">
+        <label>Staff name</label>
+        <input type="text" id="so-staff" placeholder="e.g. Shafay">
+      </div>
+    </div>
+    <button onclick="submitStockOut()" class="danger">✓ Record sale</button>
+    <div id="so-msg" style="margin-top:10px;font-size:13px"></div>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div id="page-history" style="display:none">
+  <div class="panel">
+    <div class="panel-title">Recent stock movements</div>
+    <table class="hist-table">
+      <thead><tr><th>Date</th><th>Product</th><th>Direction</th><th>Qty</th><th>Price</th><th>Note</th></tr></thead>
+      <tbody id="hist-body"><tr><td colspan="6" style="color:var(--text-muted);padding:16px 10px">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- AGENTS PAGE -->
+<div id="page-agents" style="display:none">
+  <div class="agents-grid">
+    <div class="agent-card active" id="card-ceo" onclick="selectAgent('ceo')">
+      <div class="agent-avatar" style="background:rgba(61,139,219,.15)">👑</div>
+      <div class="agent-name">CEO Agent</div>
+      <div class="agent-role">Monitor · Report · Escalate</div>
+      <div class="s-idle" id="st-ceo"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-ceo" style="width:0%;background:var(--blue)"></div></div>
+    </div>
+    <div class="agent-card" id="card-manager" onclick="selectAgent('manager')">
+      <div class="agent-avatar" style="background:rgba(46,163,113,.15)">👥</div>
+      <div class="agent-name">Manager Agent</div>
+      <div class="agent-role">Align · Audit · Delegate</div>
+      <div class="s-idle" id="st-manager"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-manager" style="width:0%;background:var(--green)"></div></div>
+    </div>
+    <div class="agent-card" id="card-marketing" onclick="selectAgent('marketing')">
+      <div class="agent-avatar" style="background:rgba(224,148,44,.15)">📣</div>
+      <div class="agent-name">Marketing Agent</div>
+      <div class="agent-role">Posters · Social · Campaigns</div>
+      <div class="s-idle" id="st-marketing"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-marketing" style="width:0%;background:var(--orange)"></div></div>
+    </div>
+    <div class="agent-card" id="card-accountant" onclick="selectAgent('accountant')">
+      <div class="agent-avatar" style="background:rgba(139,127,232,.15)">🧮</div>
+      <div class="agent-name">Accountant Agent</div>
+      <div class="agent-role">P&amp;L · Invoices · Close</div>
+      <div class="s-idle" id="st-accountant"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-accountant" style="width:0%;background:var(--purple)"></div></div>
+    </div>
+    <div class="agent-card" id="card-sales" onclick="selectAgent('sales')">
+      <div class="agent-avatar" style="background:rgba(224,119,90,.15)">💼</div>
+      <div class="agent-name">Sales Agent</div>
+      <div class="agent-role">Leads · Quotes · Close</div>
+      <div class="s-idle" id="st-sales"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-sales" style="width:0%;background:#E0775A"></div></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button onclick="startDailyCycle()" id="btn-start" class="primary">▶ Run full daily cycle</button>
+    <button onclick="runSingleAgent()" id="btn-single">⚡ Run selected agent</button>
+    <button onclick="clearLogs()">🗑 Clear log</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">🖥 Operations log</div>
+    <div class="log-area" id="log-area"><div class="lline"><span class="ltime">--:--:--</span><span class="lsys">Agents ready. Sync inventory then run cycle.</span></div></div>
+  </div>
+
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="panel-title" style="margin-bottom:0">💬 Agent output — <span id="active-agent-label" style="color:var(--text-secondary);font-weight:400">select an agent</span></div>
+    </div>
+    <div class="output-box" id="output-box">Select an agent card above then click "Run selected agent".</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">☑ Task board</div>
+    <div id="task-board"></div>
+  </div>
+</div>
+
+<!-- CEO REPORT PAGE -->
+<div id="page-report" style="display:none">
+  <div class="btn-row">
+    <button onclick="generateCEOReport()" id="btn-report" class="primary">📄 Generate CEO report now</button>
+  </div>
+  <div class="panel">
+    <div class="panel-title">📊 CEO daily report</div>
+    <div class="output-box" id="report-box">Click the button above to generate today's full CEO report.</div>
+  </div>
+</div>
+
+<div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+  NexGen Solar Autonomous Operations · Built for Shafay · shafaym.github.io/nexgen-solar
+</div>
+
+</div><!-- .app -->
+
+<script>
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyGkyhg8-_155IRjeNdye1X1JUMTgYfPZrD7WeOwovLBOZ6glgYuR1BPJV24L3zh2RG/exec';
+const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
+
+let liveInventory = [];
+let liveHistory   = [];
+let selectedAgent = 'ceo';
+let cycleRunning  = false;
+
+const AGENTS = {
+  ceo:       {name:'CEO Agent',       lc:'lceo',  bar:'var(--blue)'},
+  manager:   {name:'Manager Agent',   lc:'lmgr',  bar:'var(--green)'},
+  marketing: {name:'Marketing Agent', lc:'lmkt',  bar:'var(--orange)'},
+  accountant:{name:'Accountant Agent',lc:'lacc',  bar:'var(--purple)'},
+  sales:     {name:'Sales Agent',     lc:'lsales',bar:'#E0775A'},
+};
+
+const TASKS_TPL = [
+  {id:'t1',agent:'marketing',task:'Generate social content from live inventory'},
+  {id:'t2',agent:'marketing',task:'Draft WhatsApp broadcast message'},
+  {id:'t3',agent:'marketing',task:'Write Facebook & Instagram posts'},
+  {id:'t4',agent:'marketing',task:'Create poster brief for featured product'},
+  {id:'t5',agent:'sales',task:'Follow up warm leads with quotes'},
+  {id:'t6',agent:'sales',task:'Respond to pending WhatsApp inquiries'},
+  {id:'t7',agent:'sales',task:'Generate priority customer quotation'},
+  {id:'t8',agent:'accountant',task:'Compile recent stock movements'},
+  {id:'t9',agent:'accountant',task:'Calculate current inventory valuation'},
+  {id:'t10',agent:'accountant',task:'Flag missing-price items for correction'},
+  {id:'t11',agent:'manager',task:'Audit all three operational agents'},
+  {id:'t12',agent:'manager',task:'Flag inventory alerts to CEO'},
+  {id:'t13',agent:'ceo',task:'Compile full daily summary'},
+  {id:'t14',agent:'ceo',task:'Send 9 PM report to owner'},
+];
+let taskState = JSON.parse(JSON.stringify(TASKS_TPL));
+
+// Clock
+setInterval(()=>{ document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-PK',{hour12:false}); }, 1000);
+document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-PK',{hour12:false});
+
+// Navigation
+function showPage(id, tab){
+  ['inventory','stock-in','stock-out','history','agents','report'].forEach(p=>{
+    document.getElementById('page-'+p).style.display = p===id ? '' : 'none';
+  });
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  if(tab) tab.classList.add('active');
+}
+
+// Log
+function log(agent, msg, type=''){
+  const ag = AGENTS[agent]||{lc:'lsys',name:'System'};
+  const t  = new Date().toLocaleTimeString('en-PK',{hour12:false});
+  const cls = type==='error'?'lerr':type==='ok'?'lok':ag.lc;
+  const line = document.createElement('div');
+  line.className = 'lline';
+  line.innerHTML = `<span class="ltime">${t}</span><span class="${cls}">[${ag.name||'System'}]</span> ${msg}`;
+  const area = document.getElementById('log-area');
+  area.appendChild(line);
+  area.scrollTop = area.scrollHeight;
+}
+function clearLogs(){ document.getElementById('log-area').innerHTML = ''; }
+
+// Agent status
+function setStatus(agent, status, pct=0){
+  const el = document.getElementById('st-'+agent);
+  const labels = {idle:'Idle',working:'Working',done:'Done',error:'Error',waiting:'Waiting'};
+  el.className = 's-'+status;
+  el.innerHTML = `<span class="sdot"></span><span class="slabel">${labels[status]||status}</span>`;
+  const bar = document.getElementById('pr-'+agent);
+  bar.style.width = pct+'%';
+}
+
+function selectAgent(a){
+  selectedAgent = a;
+  document.querySelectorAll('.agent-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('card-'+a).classList.add('active');
+  document.getElementById('active-agent-label').textContent = AGENTS[a].name;
+}
+
+// Tasks
+function renderTasks(){
+  const grouped = {};
+  ['ceo','manager','marketing','accountant','sales'].forEach(a=>grouped[a]=[]);
+  taskState.forEach(t=>{ if(grouped[t.agent]) grouped[t.agent].push(t); });
+  const colors = {marketing:'var(--orange)',sales:'#E0775A',accountant:'var(--purple)',manager:'var(--green)',ceo:'var(--blue)'};
+  document.getElementById('task-board').innerHTML = ['marketing','sales','accountant','manager','ceo'].map(a=>{
+    const rows = grouped[a].map(t=>{
+      const sc = t.status==='done'?'b-ok':t.status==='running'?'b-run':t.status==='error'?'b-crit':'b-pend';
+      return `<div class="task-row"><span class="task-name">${t.task}</span><span class="badge ${sc}">${t.status||'pending'}</span></div>`;
+    }).join('');
+    return `<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:${colors[a]};margin-bottom:6px">${AGENTS[a].name}</div>${rows}</div>`;
+  }).join('');
+}
+renderTasks();
+
+// Inventory helpers
+function getMergedInventory(){
+  const merged = {};
+  liveInventory.forEach(item=>{
+    if(!merged[item.name]) merged[item.name] = {name:item.name, quantity:0, price:item.price||0};
+    merged[item.name].quantity += item.quantity;
+    if(item.price > 0) merged[item.name].price = item.price;
+  });
+  return Object.values(merged).sort((a,b)=>b.quantity-a.quantity);
+}
+
+function buildInventorySummary(){
+  const list = getMergedInventory();
+  if(!list.length) return 'No live inventory data available.';
+  const lines = list.map(i=>`- ${i.name}: ${i.quantity} units${i.price?' @ PKR '+i.price.toLocaleString():' (price not set)'}`);
+  const crits  = list.filter(i=>i.quantity<=5).map(i=>i.name);
+  return lines.join('\n') + (crits.length ? `\n\nCRITICAL LOW STOCK: ${crits.join(', ')}` : '');
+}
+
+function buildHistorySummary(){
+  if(!liveHistory.length) return 'No transaction history available.';
+  return liveHistory.slice(-10).map(h=>`- ${h.direction==='in'?'Received':'Sold'} ${h.quantity}x ${h.product}${h.price?' @ PKR '+h.price.toLocaleString():''} (${h.note||''})`).join('\n');
+}
+
+// Render inventory table
+function renderInventory(){
+  const list = getMergedInventory();
+  if(!list.length){
+    document.getElementById('inv-body').innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);padding:16px 10px">No data</td></tr>';
+    return;
+  }
+  document.getElementById('inv-body').innerHTML = list.map(item=>{
+    let sc='b-ok', sl='In stock';
+    if(item.quantity<=0){sc='b-crit';sl='Out of stock';}
+    else if(item.quantity<=5){sc='b-crit';sl='Critical';}
+    else if(item.quantity<=15){sc='b-low';sl='Low stock';}
+    if(item.price===0){sc='b-none';sl='No price set';}
+    const val = item.quantity * item.price;
+    return `<tr>
+      <td style="font-weight:500">${item.name}</td>
+      <td>${item.quantity}</td>
+      <td>${item.price?'PKR '+item.price.toLocaleString():'—'}</td>
+      <td>${val?'PKR '+val.toLocaleString():'—'}</td>
+      <td><span class="badge ${sc}">${sl}</span></td>
+      <td><input class="inline-edit" type="number" placeholder="Set price" onchange="updatePrice('${item.name}',this.value)" value="${item.price||''}"></td>
+    </tr>`;
+  }).join('');
+
+  const totalValue  = list.reduce((s,i)=>s+(i.quantity*i.price),0);
+  const noPriceCnt  = list.filter(i=>i.price===0).length;
+  const lowCnt      = list.filter(i=>i.quantity>0&&i.quantity<=15).length;
+  document.getElementById('m-sku').textContent     = list.length;
+  document.getElementById('m-sku-sub').textContent = `${lowCnt} low stock`;
+  document.getElementById('m-rev').textContent     = 'PKR '+totalValue.toLocaleString();
+  document.getElementById('m-rev-sub').textContent = 'Total inventory value';
+  document.getElementById('m-alerts').textContent  = String(noPriceCnt);
+
+  // Populate product dropdowns
+  const opts = '<option value="">— select —</option>' + list.map(i=>`<option value="${i.name}">${i.name} (${i.quantity} in stock)</option>`).join('');
+  document.getElementById('si-product').innerHTML = opts;
+  document.getElementById('so-product').innerHTML = opts;
+}
+
+// Render history table
+function renderHistory(){
+  const recent = [...liveHistory].reverse().slice(0,30);
+  if(!recent.length){
+    document.getElementById('hist-body').innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);padding:16px 10px">No history</td></tr>';
+    return;
+  }
+  document.getElementById('hist-body').innerHTML = recent.map(h=>{
+    let dateStr='—';
+    try{ dateStr = new Date(h.timestamp).toLocaleDateString('en-PK',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){}
+    const dirColor = h.direction==='in'?'#5BC98A':'#E2756C';
+    return `<tr>
+      <td style="color:var(--text-muted)">${dateStr}</td>
+      <td style="font-weight:500">${h.product}</td>
+      <td style="color:${dirColor}">${h.direction==='in'?'Stock In':'Stock Out'}</td>
+      <td>${h.quantity}</td>
+      <td>${h.price?'PKR '+Number(h.price).toLocaleString():'—'}</td>
+      <td style="color:var(--text-muted)">${h.note||''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Load data from Sheets
+async function loadData(){
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot';
+  lbl.textContent = 'Syncing with NexGen Solar inventory...';
+  try{
+    const res  = await fetch(SHEETS_URL);
+    const raw  = await res.json();
+    if(raw.error) throw new Error(raw.error);
+    liveInventory = raw.inventory || [];
+    liveHistory   = raw.history   || [];
+    renderInventory();
+    renderHistory();
+    dot.className = 'sync-dot live';
+    const ts = new Date().toLocaleTimeString('en-PK',{hour12:false});
+    lbl.textContent = `Live — ${getMergedInventory().length} SKUs · ${liveHistory.length} transactions · Last sync ${ts}`;
+    const np = getMergedInventory().filter(i=>i.price===0);
+    if(np.length) log('system',`⚠ ${np.length} products missing price: ${np.slice(0,4).map(i=>i.name).join(', ')}…`,'error');
+  } catch(e){
+    dot.className = 'sync-dot error';
+    lbl.textContent = 'Sync failed — '+e.message;
+    log('system','Inventory fetch error: '+e.message,'error');
+  }
+}
+
+// Update price inline
+async function updatePrice(productName, newPrice){
+  const price = parseInt(newPrice);
+  if(!price||price<=0){ log('system','Invalid price entered','error'); return; }
+  log('system',`Updating price for ${productName} → PKR ${price.toLocaleString()}...`);
+  try{
+    const res = await fetch(SHEETS_URL+'?action=updatePrice&product='+encodeURIComponent(productName)+'&price='+price);
+    const d   = await res.json();
+    if(d.error) throw new Error(d.error);
+    liveInventory.forEach(i=>{ if(i.name===productName) i.price=price; });
+    renderInventory();
+    log('system',`Price updated: ${productName} → PKR ${price.toLocaleString()}`,'ok');
+  } catch(e){
+    log('system','Price update failed — writes not yet configured in script','error');
+    // Update locally anyway so agents see the price this session
+    liveInventory.forEach(i=>{ if(i.name===productName) i.price=price; });
+    renderInventory();
+    log('system',`Price updated locally for this session — add to sheet manually to persist`,'ok');
+  }
+}
+
+// Stock In
+async function submitStockIn(){
+  const product = document.getElementById('si-product').value;
+  const qty     = parseInt(document.getElementById('si-qty').value);
+  const price   = parseInt(document.getElementById('si-price').value)||0;
+  const staff   = document.getElementById('si-staff').value||'Shafay';
+  const note    = document.getElementById('si-note').value||'Stock added';
+  const msg     = document.getElementById('si-msg');
+  if(!product||!qty){ msg.style.color='var(--red)'; msg.textContent='Please select product and enter quantity.'; return; }
+  msg.style.color='var(--text-muted)'; msg.textContent='Recording...';
+  // Update local state immediately
+  liveInventory.forEach(i=>{ if(i.name===product){ i.quantity+=qty; if(price>0) i.price=price; } });
+  liveHistory.push({timestamp:new Date().toISOString(),direction:'in',product,quantity:qty,price,note,staff});
+  renderInventory(); renderHistory();
+  msg.style.color='#5BC98A'; msg.textContent=`✓ Stock in recorded: ${qty}x ${product}. Update your Google Sheet manually to persist.`;
+  document.getElementById('si-qty').value=''; document.getElementById('si-price').value=''; document.getElementById('si-note').value='';
+  log('system',`Stock in: ${qty}x ${product} @ PKR ${price||'—'}`,'ok');
+}
+
+// Stock Out
+async function submitStockOut(){
+  const product  = document.getElementById('so-product').value;
+  const qty      = parseInt(document.getElementById('so-qty').value);
+  const price    = parseInt(document.getElementById('so-price').value)||0;
+  const customer = document.getElementById('so-customer').value||'';
+  const ref      = document.getElementById('so-ref').value||'';
+  const staff    = document.getElementById('so-staff').value||'Shafay';
+  const msg      = document.getElementById('so-msg');
+  if(!product||!qty){ msg.style.color='var(--red)'; msg.textContent='Please select product and enter quantity.'; return; }
+  // Check stock
+  const curr = getMergedInventory().find(i=>i.name===product);
+  if(curr && qty > curr.quantity){ msg.style.color='var(--red)'; msg.textContent=`Not enough stock. Available: ${curr.quantity} units.`; return; }
+  msg.style.color='var(--text-muted)'; msg.textContent='Recording...';
+  const note = [ref, customer].filter(Boolean).join(' · ');
+  liveInventory.forEach(i=>{ if(i.name===product) i.quantity-=qty; });
+  liveHistory.push({timestamp:new Date().toISOString(),direction:'out',product,quantity:qty,price,note,staff});
+  renderInventory(); renderHistory();
+  const total = qty * price;
+  msg.style.color='#5BC98A'; msg.textContent=`✓ Sale recorded: ${qty}x ${product}${total?' — PKR '+total.toLocaleString():''}. Update your Google Sheet to persist.`;
+  document.getElementById('so-qty').value=''; document.getElementById('so-price').value=''; document.getElementById('so-customer').value=''; document.getElementById('so-ref').value='';
+  log('system',`Stock out: ${qty}x ${product}${total?' @ PKR '+price.toLocaleString()+' = PKR '+total.toLocaleString():''} — ${note||'sale'}`,'ok');
+}
+
+// Add new product
+async function addNewProduct(){
+  const name  = document.getElementById('np-name').value.trim();
+  const qty   = parseInt(document.getElementById('np-qty').value)||0;
+  const price = parseInt(document.getElementById('np-price').value)||0;
+  const msg   = document.getElementById('np-msg');
+  if(!name){ msg.style.color='var(--red)'; msg.textContent='Product name is required.'; return; }
+  liveInventory.push({name,quantity:qty,price});
+  liveHistory.push({timestamp:new Date().toISOString(),direction:'in',product:name,quantity:qty,price,note:'New product added'});
+  renderInventory(); renderHistory();
+  msg.style.color='#5BC98A'; msg.textContent=`✓ ${name} added. Update your Google Sheet to persist.`;
+  document.getElementById('np-name').value=''; document.getElementById('np-qty').value=''; document.getElementById('np-price').value='';
+  log('system',`New product added: ${name} (${qty} units @ PKR ${price||'—'})`,'ok');
+}
+
+// Claude API
+async function callClaude(system, user){
+  const res = await fetch(CLAUDE_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system,messages:[{role:'user',content:user}]})
+  });
+  const d = await res.json();
+  if(d.error) throw new Error(d.error.message||'API error');
+  return d.content?.[0]?.text||'No response';
+}
+
+function setTaskStatus(agentId,status){
+  taskState.forEach(t=>{ if(t.agent===agentId) t.status=status; });
+  renderTasks();
+}
+
+async function runMarketingAgent(){
+  setStatus('marketing','working',10); log('marketing','Reading live inventory...'); setTaskStatus('marketing','running');
+  const inv = buildInventorySummary(); setStatus('marketing','working',40);
+  try{
+    const r = await callClaude(
+      'You are the Marketing Agent for NexGen Solar, DHA Karachi. Create compelling content with real PKR prices. Never invent prices for items marked "price not set".',
+      `LIVE inventory:\n${inv}\n\nGenerate:\n1. WhatsApp Broadcast (150 words max, Urdu/English, priced products only, mention DHA Karachi)\n2. Facebook Post (engaging, Karachi hashtags)\n3. Instagram Caption (punchy, 2-3 hashtags)\n4. Poster Brief for highest-value priced product\n5. Flag unpriced high-stock items for Manager\n\nLabel each section.`
+    );
+    setStatus('marketing','done',100); log('marketing','Content generated','ok'); setTaskStatus('marketing','done');
+    document.getElementById('m-posts').textContent='4';
+    if(selectedAgent==='marketing'){ document.getElementById('output-box').textContent=r; document.getElementById('active-agent-label').textContent='Marketing Agent'; }
+    return r;
+  }catch(e){ setStatus('marketing','error',0); log('marketing','Error: '+e.message,'error'); setTaskStatus('marketing','error'); return null; }
+}
+
+async function runSalesAgent(){
+  setStatus('sales','working',15); log('sales','Scanning leads...'); setTaskStatus('sales','running'); setStatus('sales','working',45);
+  const inv = buildInventorySummary();
+  try{
+    const r = await callClaude(
+      'You are the Sales Agent for NexGen Solar, DHA Karachi. Professional, warm tone. PKR pricing from real inventory only.',
+      `Live inventory:\n${inv}\n\nGenerate:\n1. WhatsApp follow-up for home solar system inquiry (use priced products)\n2. Formal itemized quotation in PKR\n3. Response to: "Bhai 5KW system ka kya rate hai DHA mein?" (Urdu/English)\n4. Pipeline note for Manager\n\nLabel each section.`
+    );
+    setStatus('sales','done',100); log('sales','Follow-ups and quotes ready','ok'); setTaskStatus('sales','done');
+    if(selectedAgent==='sales'){ document.getElementById('output-box').textContent=r; document.getElementById('active-agent-label').textContent='Sales Agent'; }
+    return r;
+  }catch(e){ setStatus('sales','error',0); log('sales','Error: '+e.message,'error'); setTaskStatus('sales','error'); return null; }
+}
+
+async function runAccountantAgent(){
+  setStatus('accountant','working',20); log('accountant','Compiling valuation...'); setTaskStatus('accountant','running'); setStatus('accountant','working',50);
+  const inv  = buildInventorySummary();
+  const hist = buildHistorySummary();
+  try{
+    const r = await callClaude(
+      'You are the Accountant Agent for NexGen Solar, DHA Karachi. Precise PKR reports. Flag missing prices as financial blind spots.',
+      `Inventory:\n${inv}\n\nRecent movements:\n${hist}\n\nGenerate:\n1. Inventory valuation (total value, top 3 items)\n2. Stock movement summary\n3. Missing price alert\n4. Low-stock risk note\n5. Manager summary\n\nAll in PKR.`
+    );
+    setStatus('accountant','done',100); log('accountant','Valuation report done','ok'); setTaskStatus('accountant','done');
+    if(selectedAgent==='accountant'){ document.getElementById('output-box').textContent=r; document.getElementById('active-agent-label').textContent='Accountant Agent'; }
+    return r;
+  }catch(e){ setStatus('accountant','error',0); log('accountant','Error: '+e.message,'error'); setTaskStatus('accountant','error'); return null; }
+}
+
+async function runManagerAgent(mkt,sal,acc){
+  setStatus('manager','working',20); log('manager','Auditing all agents...'); setTaskStatus('manager','running'); setStatus('manager','working',55);
+  const inv = buildInventorySummary();
+  try{
+    const r = await callClaude(
+      'You are the Manager Agent for NexGen Solar, DHA Karachi. Audit agents, ensure alignment, escalate to CEO.',
+      `Inventory:\n${inv}\n\nMarketing: ${mkt?'Done':'FAILED'}\nSales: ${sal?'Done':'FAILED'}\nAccountant: ${acc?'Done':'FAILED'}\n\nProduce:\n1. Agent alignment summary\n2. Issues found\n3. Corrective actions\n4. Reorder recommendations\n5. CEO brief`
+    );
+    setStatus('manager','done',100); log('manager','Audit complete','ok'); setTaskStatus('manager','done');
+    if(selectedAgent==='manager'){ document.getElementById('output-box').textContent=r; document.getElementById('active-agent-label').textContent='Manager Agent'; }
+    return r;
+  }catch(e){ setStatus('manager','error',0); log('manager','Error: '+e.message,'error'); setTaskStatus('manager','error'); return null; }
+}
+
+async function generateCEOReport(){
+  const btn = document.getElementById('btn-report');
+  btn.disabled=true; setStatus('ceo','working',30); log('ceo','Compiling 9 PM report for Shafay...'); setTaskStatus('ceo','running');
+  const inv = buildInventorySummary();
+  try{
+    const r = await callClaude(
+      'You are the CEO Agent of NexGen Solar, DHA Karachi. Sharp nightly report for Shafay. Start with 5-line WhatsApp summary, then full report.',
+      `Date: ${new Date().toLocaleDateString('en-PK',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}\n\nStock: ${getMergedInventory().length} SKUs, value ${document.getElementById('m-rev').textContent}\nMissing prices: ${document.getElementById('m-alerts').textContent}\nPosts created: ${document.getElementById('m-posts').textContent}\n\nInventory:\n${inv}\n\nAgent statuses:\n- Marketing: ${document.getElementById('st-marketing').querySelector('.slabel').textContent}\n- Sales: ${document.getElementById('st-sales').querySelector('.slabel').textContent}\n- Accountant: ${document.getElementById('st-accountant').querySelector('.slabel').textContent}\n- Manager: ${document.getElementById('st-manager').querySelector('.slabel').textContent}\n\nProduce:\n1. WhatsApp summary for Shafay (5 lines, urgent first)\n2. Full operational report\n3. Decisions needed from Shafay\n4. Tomorrow's top 3 priorities`
+    );
+    setStatus('ceo','done',100); log('ceo','Report ready for Shafay','ok'); setTaskStatus('ceo','done');
+    document.getElementById('report-box').textContent=r;
+    showPage('report', document.querySelectorAll('.nav-tab')[5]);
+  }catch(e){ setStatus('ceo','error',0); log('ceo','Error: '+e.message,'error'); }
+  btn.disabled=false;
+}
+
+async function runSingleAgent(){
+  if(cycleRunning){ log('system','Cycle running — wait'); return; }
+  document.getElementById('output-box').textContent='Calling AI...';
+  if(selectedAgent==='marketing') await runMarketingAgent();
+  else if(selectedAgent==='sales') await runSalesAgent();
+  else if(selectedAgent==='accountant') await runAccountantAgent();
+  else if(selectedAgent==='manager') await runManagerAgent(true,true,true);
+  else if(selectedAgent==='ceo') await generateCEOReport();
+}
+
+async function startDailyCycle(){
+  if(cycleRunning) return;
+  cycleRunning=true;
+  document.getElementById('btn-start').disabled=true;
+  taskState=JSON.parse(JSON.stringify(TASKS_TPL)); renderTasks();
+  const badge=document.getElementById('cycle-badge');
+  badge.textContent='Running...'; badge.style.background='rgba(61,139,219,.15)'; badge.style.color='#5DA3E5';
+  log('system','=== Daily cycle starting ===');
+  await loadData();
+  await new Promise(r=>setTimeout(r,500));
+  log('ceo','Briefing all agents...');
+  setStatus('ceo','working',15); setStatus('manager','working',10);
+  setStatus('marketing','waiting',0); setStatus('sales','waiting',0); setStatus('accountant','waiting',0);
+  await new Promise(r=>setTimeout(r,500));
+  log('system','--- Phase 1: Operational agents ---');
+  const [mkt,sal,acc] = await Promise.all([
+    runMarketingAgent(),
+    (async()=>{ await new Promise(r=>setTimeout(r,300)); return runSalesAgent(); })(),
+    (async()=>{ await new Promise(r=>setTimeout(r,600)); return runAccountantAgent(); })(),
+  ]);
+  await new Promise(r=>setTimeout(r,400));
+  log('system','--- Phase 2: Manager audit ---');
+  await runManagerAgent(mkt,sal,acc);
+  await new Promise(r=>setTimeout(r,400));
+  log('system','--- Phase 3: CEO report ---');
+  await generateCEOReport();
+  log('system','=== All agents complete ===','ok');
+  badge.textContent='Complete ✓'; badge.style.background='rgba(46,163,113,.15)'; badge.style.color='#5BC98A';
+  cycleRunning=false;
+  document.getElementById('btn-start').disabled=false;
+}
+
+// Auto-load on start
+loadData();
+</script>
+</body>
+</html>
