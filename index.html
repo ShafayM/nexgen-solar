@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexGen Solar — Autonomous Operations</title>
+<style>
+  :root{
+    --bg-0:#0B0F14;
+    --bg-1:#11161D;
+    --bg-2:#161D26;
+    --bg-3:#1C2530;
+    --border:#27313D;
+    --border-strong:#34404D;
+    --text-primary:#E8EDF2;
+    --text-secondary:#9DAAB8;
+    --text-muted:#6B7785;
+    --accent-blue:#3D8BDB;
+    --accent-green:#2EA371;
+    --accent-orange:#E0942C;
+    --accent-purple:#8B7FE8;
+    --accent-red:#E2574C;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:radial-gradient(ellipse 1200px 800px at 50% -10%, #16202C 0%, var(--bg-0) 55%);
+    color:var(--text-primary);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding:24px;
+  }
+  .app{max-width:1200px;margin:0 auto}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .logo{font-size:18px;font-weight:600;letter-spacing:-0.02em}
+  .logo span{color:var(--accent-blue)}
+  .logo-sub{font-size:12px;color:var(--text-muted);margin-top:2px}
+  .clock{font-size:14px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+  .topbar-right{display:flex;align-items:center;gap:14px}
+
+  .sync-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px 16px;background:var(--bg-1);border-radius:10px;border:1px solid var(--border)}
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0}
+  .sync-dot.live{background:var(--accent-green);animation:pulse 1.5s infinite}
+  .sync-dot.error{background:var(--accent-red)}
+  .sync-label{font-size:12.5px;color:var(--text-secondary);flex:1}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  button{
+    background:var(--bg-3);
+    color:var(--text-primary);
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    padding:8px 14px;
+    font-size:12.5px;
+    cursor:pointer;
+    font-family:inherit;
+    transition:all .15s;
+  }
+  button:hover{background:#222D3A;border-color:#3D4A5A}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--accent-blue);border-color:var(--accent-blue);color:#fff;font-weight:500}
+  button.primary:hover{background:#4A97E5}
+
+  .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+  .metric{background:var(--bg-1);border-radius:10px;padding:14px;border:1px solid var(--border)}
+  .metric-label{font-size:11px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+  .metric-val{font-size:21px;font-weight:600;color:var(--text-primary)}
+  .metric-sub{font-size:11.5px;color:var(--text-secondary);margin-top:3px}
+
+  .agents-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:16px}
+  .agent-card{background:var(--bg-1);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all .15s}
+  .agent-card:hover{border-color:var(--border-strong);background:var(--bg-2)}
+  .agent-card.active{border-color:var(--accent-blue);background:var(--bg-2)}
+  .agent-avatar{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px}
+  .agent-name{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px}
+  .agent-role{font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4}
+  .sdot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
+  .slabel{font-size:11px}
+  .s-idle .sdot{background:var(--text-muted)}.s-idle .slabel{color:var(--text-muted)}
+  .s-working .sdot{background:var(--accent-green);animation:pulse 1.2s infinite}.s-working .slabel{color:var(--accent-green)}
+  .s-done .sdot{background:#5BC98A}.s-done .slabel{color:#5BC98A}
+  .s-error .sdot{background:var(--accent-red)}.s-error .slabel{color:var(--accent-red)}
+  .s-waiting .sdot{background:var(--accent-orange)}.s-waiting .slabel{color:var(--accent-orange)}
+  .pbar{height:3px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden}
+  .pfill{height:100%;border-radius:2px;transition:width .5s ease}
+
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .stabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+  .stab{font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);cursor:pointer;color:var(--text-secondary);background:transparent;transition:all .15s}
+  .stab:hover{border-color:var(--border-strong);color:var(--text-primary)}
+  .stab.active{background:var(--bg-2);color:var(--text-primary);border-color:var(--border-strong)}
+
+  .panel{background:var(--bg-1);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px}
+  .panel-title{font-size:13.5px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+
+  .log-area{background:var(--bg-0);border-radius:8px;padding:12px;min-height:140px;max-height:280px;overflow-y:auto;font-size:12px;line-height:1.8;font-family:"SF Mono",Monaco,"Courier New",monospace;border:1px solid var(--border)}
+  .lline{padding:1px 0;border-bottom:1px solid #1A222C}
+  .lline:last-child{border-bottom:none}
+  .ltime{color:var(--text-muted);margin-right:8px}
+  .lceo{color:var(--accent-blue)}.lmgr{color:var(--accent-green)}.lmkt{color:var(--accent-orange)}.lacc{color:var(--accent-purple)}.lsales{color:#E0775A}.lsys{color:var(--text-muted)}.lerr{color:var(--accent-red)}.lok{color:#5BC98A}
+
+  .output-box{background:var(--bg-0);border-radius:8px;padding:16px;font-size:13px;line-height:1.85;color:var(--text-primary);min-height:120px;white-space:pre-wrap;border:1px solid var(--border)}
+
+  .inv-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;font-size:12.5px;padding:9px 0;border-bottom:1px solid #1A222C;align-items:center}
+  .inv-row:last-child{border-bottom:none}
+  .inv-head{color:var(--text-muted);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .badge{font-size:10.5px;padding:3px 9px;border-radius:6px;display:inline-block;font-weight:500}
+  .b-ok{background:rgba(46,163,113,0.15);color:#5BC98A}
+  .b-low{background:rgba(224,148,44,0.15);color:#E0A84C}
+  .b-crit{background:rgba(226,87,76,0.15);color:#E2756C}
+  .b-run{background:rgba(61,139,219,0.15);color:#5DA3E5}
+  .b-pend{background:rgba(224,148,44,0.15);color:#E0A84C}
+
+  .task-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1A222C;font-size:12.5px;gap:8px}
+  .task-row:last-child{border-bottom:none}
+  .task-name{flex:1;color:var(--text-secondary)}
+
+  .hist-row{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:8px;font-size:12px;padding:8px 0;border-bottom:1px solid #1A222C;align-items:center}
+  .hist-row:last-child{border-bottom:none}
+
+  .config-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--bg-1);border-radius:10px;border:1px solid var(--border);font-size:12px;color:var(--text-secondary)}
+  .config-bar input{background:var(--bg-0);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text-primary);font-size:12px;font-family:monospace;width:340px}
+
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+
+  @media (max-width:900px){
+    .agents-grid{grid-template-columns:repeat(3,1fr)}
+    .metrics{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:600px){
+    .agents-grid{grid-template-columns:repeat(2,1fr)}
+    body{padding:14px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div>
+      <div class="logo"><span>NexGen</span> Solar</div>
+      <div class="logo-sub">Autonomous Operations Dashboard</div>
+    </div>
+    <div class="topbar-right">
+      <div class="clock" id="clock">--:--:--</div>
+      <div id="cycle-badge" style="font-size:11px;padding:4px 12px;border-radius:8px;background:var(--bg-2);border:1px solid var(--border);color:var(--text-muted)">Standby</div>
+    </div>
+  </div>
+
+  <div class="config-bar">
+    <span>Inventory source:</span>
+    <input type="text" id="sheets-url-input" placeholder="Paste your Google Apps Script URL here">
+    <button onclick="saveAndLoad()" class="primary">Connect</button>
+  </div>
+
+  <div class="sync-row">
+    <div class="sync-dot" id="sync-dot"></div>
+    <div class="sync-label" id="sync-label">Not connected — paste your Apps Script URL above</div>
+    <button onclick="loadInventory()">↻ Sync</button>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Stock value</div><div class="metric-val" id="m-rev">PKR —</div><div class="metric-sub" id="m-rev-sub">Awaiting sync</div></div>
+    <div class="metric"><div class="metric-label">SKUs tracked</div><div class="metric-val" id="m-sku">—</div><div class="metric-sub" id="m-sku-sub">Awaiting sync</div></div>
+    <div class="metric"><div class="metric-label">Posts created</div><div class="metric-val" id="m-posts">0</div><div class="metric-sub">WA · FB · IG</div></div>
+    <div class="metric"><div class="metric-label">Alerts</div><div class="metric-val" id="m-errors" style="color:var(--accent-red)">0</div><div class="metric-sub">Missing prices / low stock</div></div>
+  </div>
+
+  <div class="agents-grid">
+    <div class="agent-card active" id="card-ceo" onclick="selectAgent('ceo')">
+      <div class="agent-avatar" style="background:rgba(61,139,219,0.15)">👑</div>
+      <div class="agent-name">CEO Agent</div>
+      <div class="agent-role">Monitor · Report · Escalate</div>
+      <div class="s-idle" id="st-ceo"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-ceo" style="width:0%;background:var(--accent-blue)"></div></div>
+    </div>
+    <div class="agent-card" id="card-manager" onclick="selectAgent('manager')">
+      <div class="agent-avatar" style="background:rgba(46,163,113,0.15)">👥</div>
+      <div class="agent-name">Manager Agent</div>
+      <div class="agent-role">Align · Audit · Delegate</div>
+      <div class="s-idle" id="st-manager"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-manager" style="width:0%;background:var(--accent-green)"></div></div>
+    </div>
+    <div class="agent-card" id="card-marketing" onclick="selectAgent('marketing')">
+      <div class="agent-avatar" style="background:rgba(224,148,44,0.15)">📣</div>
+      <div class="agent-name">Marketing Agent</div>
+      <div class="agent-role">Posters · Social · Campaigns</div>
+      <div class="s-idle" id="st-marketing"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-marketing" style="width:0%;background:var(--accent-orange)"></div></div>
+    </div>
+    <div class="agent-card" id="card-accountant" onclick="selectAgent('accountant')">
+      <div class="agent-avatar" style="background:rgba(139,127,232,0.15)">🧮</div>
+      <div class="agent-name">Accountant Agent</div>
+      <div class="agent-role">P&amp;L · Invoices · Close</div>
+      <div class="s-idle" id="st-accountant"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-accountant" style="width:0%;background:var(--accent-purple)"></div></div>
+    </div>
+    <div class="agent-card" id="card-sales" onclick="selectAgent('sales')">
+      <div class="agent-avatar" style="background:rgba(224,119,90,0.15)">💼</div>
+      <div class="agent-name">Sales Agent</div>
+      <div class="agent-role">Leads · Quotes · Close</div>
+      <div class="s-idle" id="st-sales"><span class="sdot"></span><span class="slabel">Idle</span></div>
+      <div class="pbar"><div class="pfill" id="pr-sales" style="width:0%;background:#E0775A"></div></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button onclick="startDailyCycle()" id="btn-start" class="primary">▶ Run full daily cycle</button>
+    <button onclick="runSingleAgent()" id="btn-single">⚡ Run selected agent</button>
+    <button onclick="generateCEOReport()" id="btn-report">📄 CEO report now</button>
+    <button onclick="clearLogs()">🗑 Clear logs</button>
+  </div>
+
+  <div class="stabs">
+    <div class="stab active" onclick="showTab('logs',this)">Operations log</div>
+    <div class="stab" onclick="showTab('tasks',this)">Task board</div>
+    <div class="stab" onclick="showTab('inventory',this)">Live inventory</div>
+    <div class="stab" onclick="showTab('history',this)">Recent history</div>
+    <div class="stab" onclick="showTab('output',this)">Agent output</div>
+    <div class="stab" onclick="showTab('report',this)">CEO report</div>
+  </div>
+
+  <div id="tab-logs" class="panel">
+    <div class="panel-title">🖥 Live operations log</div>
+    <div class="log-area" id="log-area"><div class="lline"><span class="ltime">--:--:--</span><span class="lsys">System ready. Connect your inventory source above to begin.</span></div></div>
+  </div>
+
+  <div id="tab-tasks" class="panel" style="display:none">
+    <div class="panel-title">☑ Daily task board</div>
+    <div id="task-board"></div>
+  </div>
+
+  <div id="tab-inventory" class="panel" style="display:none">
+    <div class="panel-title">📦 NexGen Solar — live inventory</div>
+    <div class="inv-row inv-head"><span>Product</span><span>Stock</span><span>Price (PKR)</span><span>Status</span></div>
+    <div id="inv-list"><div style="font-size:12px;color:var(--text-muted);padding:14px 0">Connect inventory source to load data.</div></div>
+  </div>
+
+  <div id="tab-history" class="panel" style="display:none">
+    <div class="panel-title">🕓 Recent stock movements</div>
+    <div class="hist-row inv-head"><span>Product</span><span>Direction</span><span>Qty</span><span>Date</span></div>
+    <div id="hist-list"><div style="font-size:12px;color:var(--text-muted);padding:14px 0">No data yet.</div></div>
+  </div>
+
+  <div id="tab-output" class="panel" style="display:none">
+    <div class="panel-title">💬 Agent output — <span id="active-agent-label" style="color:var(--text-secondary);font-weight:400">select an agent card</span></div>
+    <div class="output-box" id="output-box">Select an agent card above, then click "Run selected agent".</div>
+  </div>
+
+  <div id="tab-report" class="panel" style="display:none">
+    <div class="panel-title">📊 CEO daily report</div>
+    <div class="output-box" id="report-box">Click "CEO report now" to generate the full daily summary.</div>
+  </div>
+
+  <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+    NexGen Solar Autonomous Operations · Data persists locally in this browser · Built for Shafay
+  </div>
+</div>
+
+<script>
+const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
+const STORAGE_KEY = 'nexgen_solar_sheets_url';
+
+let liveInventory = [];
+let liveHistory = [];
+let liveConfig = {};
+let selectedAgent = 'ceo';
+let cycleRunning = false;
+let SHEETS_URL = localStorage.getItem(STORAGE_KEY) || '';
+
+if(SHEETS_URL){
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.getElementById('sheets-url-input').value = SHEETS_URL;
+  });
+}
+
+const AGENTS = {
+  ceo:       {name:'CEO Agent',       lc:'lceo',  barColor:'var(--accent-blue)'},
+  manager:   {name:'Manager Agent',   lc:'lmgr',  barColor:'var(--accent-green)'},
+  marketing: {name:'Marketing Agent', lc:'lmkt',  barColor:'var(--accent-orange)'},
+  accountant:{name:'Accountant Agent',lc:'lacc',  barColor:'var(--accent-purple)'},
+  sales:     {name:'Sales Agent',     lc:'lsales',barColor:'#E0775A'},
+};
+
+const TASKS_TEMPLATE = [
+  {id:'t1',agent:'marketing',task:'Generate social content from live inventory'},
+  {id:'t2',agent:'marketing',task:'Draft WhatsApp broadcast message'},
+  {id:'t3',agent:'marketing',task:'Write Facebook & Instagram posts'},
+  {id:'t4',agent:'marketing',task:'Create poster brief for featured product'},
+  {id:'t5',agent:'sales',task:'Follow up warm leads with quotes'},
+  {id:'t6',agent:'sales',task:'Respond to pending WhatsApp inquiries'},
+  {id:'t7',agent:'sales',task:'Generate priority customer quotation'},
+  {id:'t8',agent:'accountant',task:'Compile recent stock movements'},
+  {id:'t9',agent:'accountant',task:'Calculate current inventory valuation'},
+  {id:'t10',agent:'accountant',task:'Flag missing-price items for correction'},
+  {id:'t11',agent:'manager',task:'Audit all three operational agents'},
+  {id:'t12',agent:'manager',task:'Flag inventory alerts to CEO'},
+  {id:'t13',agent:'ceo',task:'Compile full daily summary'},
+  {id:'t14',agent:'ceo',task:'Send 9 PM report to owner'},
+];
+let taskState = JSON.parse(JSON.stringify(TASKS_TEMPLATE));
+
+function updateClock(){
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-PK',{hour12:false});
+}
+setInterval(updateClock,1000); updateClock();
+
+function log(agent, msg, type=''){
+  const ag = AGENTS[agent]||{lc:'lsys',name:'System'};
+  const t = new Date().toLocaleTimeString('en-PK',{hour12:false});
+  const cls = type==='error'?'lerr':type==='ok'?'lok':ag.lc;
+  const line = document.createElement('div');
+  line.className='lline';
+  line.innerHTML=`<span class="ltime">${t}</span><span class="${cls}">[${ag.name||'System'}]</span> ${msg}`;
+  const area = document.getElementById('log-area');
+  area.appendChild(line);
+  area.scrollTop=area.scrollHeight;
+}
+
+function setStatus(agent,status,pct=0){
+  const el=document.getElementById('st-'+agent);
+  const labels={idle:'Idle',working:'Working',done:'Done',error:'Error',waiting:'Waiting'};
+  el.className='s-'+status;
+  el.innerHTML=`<span class="sdot"></span><span class="slabel">${labels[status]||status}</span>`;
+  const bar=document.getElementById('pr-'+agent);
+  bar.style.width=pct+'%';
+}
+
+function selectAgent(a){
+  selectedAgent=a;
+  document.querySelectorAll('.agent-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('card-'+a).classList.add('active');
+  document.getElementById('active-agent-label').textContent=AGENTS[a].name;
+}
+
+function showTab(id,tab){
+  ['logs','tasks','inventory','history','output','report'].forEach(s=>{
+    document.getElementById('tab-'+s).style.display=s===id?'':'none';
+  });
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+}
+
+function clearLogs(){document.getElementById('log-area').innerHTML='';}
+
+function renderTasks(){
+  const grouped={};
+  ['ceo','manager','marketing','accountant','sales'].forEach(a=>grouped[a]=[]);
+  taskState.forEach(t=>{ if(grouped[t.agent]) grouped[t.agent].push(t); });
+  const order=['marketing','sales','accountant','manager','ceo'];
+  document.getElementById('task-board').innerHTML=order.map(a=>{
+    const ag=AGENTS[a];
+    const rows=grouped[a].map(t=>{
+      const sc=t.status==='done'?'b-ok':t.status==='running'?'b-run':t.status==='error'?'b-crit':'b-pend';
+      return `<div class="task-row"><span class="task-name">${t.task}</span><span class="badge ${sc}">${t.status||'pending'}</span></div>`;
+    }).join('');
+    return `<div style="margin-bottom:16px"><div style="font-size:12.5px;font-weight:600;color:${ag.barColor};margin-bottom:6px">${ag.name}</div>${rows}</div>`;
+  }).join('');
+}
+renderTasks();
+
+function renderInventory(data){
+  if(!data||!data.length){
+    document.getElementById('inv-list').innerHTML='<div style="font-size:12px;color:var(--text-muted);padding:14px 0">No inventory data found.</div>';
+    return null;
+  }
+  const merged = {};
+  data.forEach(item=>{
+    const key = item.name;
+    if(!merged[key]) merged[key] = {name:item.name, quantity:0, price:item.price||0};
+    merged[key].quantity += item.quantity;
+    if(item.price > 0) merged[key].price = item.price;
+  });
+  const list = Object.values(merged).sort((a,b)=>b.quantity-a.quantity);
+
+  document.getElementById('inv-list').innerHTML=list.map(item=>{
+    let statusLabel='In stock', statusClass='b-ok';
+    if(item.quantity<=0){statusLabel='Out of stock';statusClass='b-crit';}
+    else if(item.quantity<=5){statusLabel='Critical';statusClass='b-crit';}
+    else if(item.quantity<=15){statusLabel='Low stock';statusClass='b-low';}
+    if(item.price===0){statusLabel='No price set';statusClass='b-low';}
+    return `<div class="inv-row"><span>${item.name}</span><span>${item.quantity}</span><span>${item.price?'PKR '+item.price.toLocaleString():'—'}</span><span class="badge ${statusClass}">${statusLabel}</span></div>`;
+  }).join('');
+
+  const totalValue = list.reduce((s,i)=>s+(i.quantity*i.price),0);
+  const noPriceCount = list.filter(i=>i.price===0).length;
+  const lowStockCount = list.filter(i=>i.quantity<=15 && i.quantity>0).length;
+
+  document.getElementById('m-sku').textContent=list.length;
+  document.getElementById('m-sku-sub').textContent=`${lowStockCount} low stock`;
+  document.getElementById('m-rev').textContent='PKR '+totalValue.toLocaleString();
+  document.getElementById('m-rev-sub').textContent='Total inventory value';
+  document.getElementById('m-errors').textContent=String(noPriceCount);
+
+  return list;
+}
+
+function renderHistory(data){
+  if(!data||!data.length){
+    document.getElementById('hist-list').innerHTML='<div style="font-size:12px;color:var(--text-muted);padding:14px 0">No history data found.</div>';
+    return;
+  }
+  const recent = data.slice(-15).reverse();
+  document.getElementById('hist-list').innerHTML=recent.map(h=>{
+    const dirColor = h.direction==='in'?'#5BC98A':'#E2756C';
+    const dirLabel = h.direction==='in'?'Stock In':'Stock Out';
+    let dateStr = '—';
+    try{ dateStr = new Date(h.timestamp).toLocaleDateString('en-PK',{month:'short',day:'numeric'}); }catch(e){}
+    return `<div class="hist-row"><span>${h.product}</span><span style="color:${dirColor}">${dirLabel}</span><span>${h.quantity}</span><span style="color:var(--text-muted)">${dateStr}</span></div>`;
+  }).join('');
+}
+
+function saveAndLoad(){
+  const val = document.getElementById('sheets-url-input').value.trim();
+  if(!val){ log('system','Please paste a valid Apps Script URL first','error'); return; }
+  SHEETS_URL = val;
+  localStorage.setItem(STORAGE_KEY, val);
+  log('system','Inventory source saved','ok');
+  loadInventory();
+}
+
+async function loadInventory(){
+  if(!SHEETS_URL){
+    log('system','No inventory source connected yet — paste your Apps Script URL above','error');
+    return;
+  }
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-label');
+  dot.className='sync-dot';
+  lbl.textContent='Connecting to NexGen Solar inventory...';
+  log('system','Fetching inventory and history from Google Sheets...');
+
+  try {
+    const res=await fetch(SHEETS_URL);
+    const raw=await res.json();
+
+    if(raw.error){
+      throw new Error(raw.error);
+    }
+
+    liveInventory = raw.inventory || [];
+    liveHistory = raw.history || [];
+    liveConfig = raw.config || {};
+
+    const merged = renderInventory(liveInventory);
+    renderHistory(liveHistory);
+
+    dot.className='sync-dot live';
+    const ts=new Date().toLocaleTimeString('en-PK',{hour12:false});
+    lbl.textContent=`Live — ${merged?merged.length:liveInventory.length} SKUs, ${liveHistory.length} transactions · Last sync ${ts}`;
+    log('system',`Inventory loaded: ${liveInventory.length} entries, ${liveHistory.length} history records`,'ok');
+
+    const noPriceItems = merged ? merged.filter(i=>i.price===0).map(i=>i.name) : [];
+    if(noPriceItems.length){
+      log('system',`⚠ ${noPriceItems.length} products missing price: ${noPriceItems.slice(0,4).join(', ')}${noPriceItems.length>4?'...':''}`,'error');
+    }
+    return liveInventory;
+  } catch(e){
+    dot.className='sync-dot error';
+    lbl.textContent='Inventory sync failed — '+e.message;
+    log('system','Inventory fetch error: '+e.message,'error');
+    return liveInventory;
+  }
+}
+
+function buildInventorySummary(){
+  if(!liveInventory.length) return 'No live inventory data available.';
+  const merged = {};
+  liveInventory.forEach(item=>{
+    const key = item.name;
+    if(!merged[key]) merged[key] = {name:item.name, quantity:0, price:item.price||0};
+    merged[key].quantity += item.quantity;
+    if(item.price > 0) merged[key].price = item.price;
+  });
+  const list = Object.values(merged).sort((a,b)=>b.quantity-a.quantity);
+  const lines=list.map(item=>`- ${item.name}: ${item.quantity} units${item.price?' @ PKR '+item.price.toLocaleString():' (price not set)'}`);
+  const criticals=list.filter(i=>i.quantity<=5).map(i=>i.name);
+  return lines.join('\n')+(criticals.length?`\n\nCRITICAL LOW STOCK: ${criticals.join(', ')}`:'');
+}
+
+function buildHistorySummary(){
+  if(!liveHistory.length) return 'No transaction history available.';
+  const recent = liveHistory.slice(-10);
+  return recent.map(h=>`- ${h.direction==='in'?'Received':'Sold/Issued'} ${h.quantity}x ${h.product}${h.price?' @ PKR '+h.price.toLocaleString():''} (${h.note||''})`).join('\n');
+}
+
+async function callClaude(system, user){
+  const res=await fetch(CLAUDE_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens:1000,
+      system,
+      messages:[{role:'user',content:user}]
+    })
+  });
+  const d=await res.json();
+  if(d.error) throw new Error(d.error.message||'API error');
+  return d.content?.[0]?.text||'No response';
+}
+
+function setTaskStatus(agentId,status){
+  taskState.forEach(t=>{if(t.agent===agentId)t.status=status;});
+  renderTasks();
+}
+
+async function runMarketingAgent(){
+  setStatus('marketing','working',10);
+  log('marketing','Starting — reading live inventory...');
+  setTaskStatus('marketing','running');
+  const inv=buildInventorySummary();
+  setStatus('marketing','working',35);
+  log('marketing','Generating social media content from live stock data...');
+  try{
+    const result=await callClaude(
+      'You are the Marketing Agent for NexGen Solar, a solar energy retail & wholesale company in DHA Karachi, Pakistan. You create compelling marketing content in professional English with natural Urdu phrases. Always reference real PKR prices from the inventory data provided. Note: some items have no price set yet — flag these instead of inventing a price.',
+      `Current LIVE inventory:\n${inv}\n\nGenerate:\n1. WhatsApp Broadcast Message (max 150 words, Urdu/English mix, only feature products that HAVE a price set, mention DHA Karachi office)\n2. Facebook Post (engaging, hashtags for Karachi solar market)\n3. Instagram Caption (punchy, 2-3 hashtags)\n4. Poster Content Brief for the highest-value priced product in stock (headline, key specs, CTA)\n5. Note: list any high-stock items missing a price that Manager should fix before promoting\n\nLabel each section clearly.`
+    );
+    setStatus('marketing','working',90);
+    log('marketing','Content generated from live inventory','ok');
+    log('marketing','WhatsApp broadcast drafted, FB+IG posts ready');
+    setTaskStatus('marketing','done');
+    setStatus('marketing','done',100);
+    document.getElementById('m-posts').textContent='4';
+    if(selectedAgent==='marketing'){
+      document.getElementById('output-box').textContent=result;
+      document.getElementById('active-agent-label').textContent='Marketing Agent';
+    }
+    return result;
+  }catch(e){
+    setStatus('marketing','error',0);
+    log('marketing','Error: '+e.message,'error');
+    setTaskStatus('marketing','error');
+    return null;
+  }
+}
+
+async function runSalesAgent(){
+  setStatus('sales','working',15);
+  log('sales','Scanning leads pipeline...');
+  setTaskStatus('sales','running');
+  setStatus('sales','working',45);
+  const inv=buildInventorySummary();
+  try{
+    const result=await callClaude(
+      'You are the Sales Agent for NexGen Solar, DHA Karachi. You handle lead follow-ups, quotations, and customer WhatsApp responses. Always be warm, professional, and use PKR pricing from real inventory only.',
+      `Live inventory:\n${inv}\n\nGenerate today's sales actions:\n1. WhatsApp follow-up message for a customer interested in a complete home solar system (use actual priced products from inventory)\n2. Formal quotation using only items with a set price — itemized PKR total\n3. Response to inquiry: "Bhai 5KW system ka kya rate hai DHA mein?" (Urdu/English mix, real products, installation note)\n4. Daily sales pipeline note for Manager flagging any products needed but missing prices\n\nLabel each section.`
+    );
+    setStatus('sales','working',90);
+    log('sales','Lead follow-ups drafted, quotation generated','ok');
+    setTaskStatus('sales','done');
+    setStatus('sales','done',100);
+    if(selectedAgent==='sales'){
+      document.getElementById('output-box').textContent=result;
+      document.getElementById('active-agent-label').textContent='Sales Agent';
+    }
+    return result;
+  }catch(e){
+    setStatus('sales','error',0);
+    log('sales','Error: '+e.message,'error');
+    setTaskStatus('sales','error');
+    return null;
+  }
+}
+
+async function runAccountantAgent(){
+  setStatus('accountant','working',20);
+  log('accountant','Compiling stock movements and valuation...');
+  setTaskStatus('accountant','running');
+  setStatus('accountant','working',50);
+  const inv=buildInventorySummary();
+  const hist=buildHistorySummary();
+  try{
+    const result=await callClaude(
+      'You are the Accountant Agent for NexGen Solar, DHA Karachi. You produce accurate inventory valuation and stock movement reports in PKR. Be precise and flag financial concerns like missing prices clearly.',
+      `Current inventory:\n${inv}\n\nRecent stock movements:\n${hist}\n\nGenerate:\n1. Inventory Valuation Report (total stock value using set prices, top 3 highest-value items)\n2. Stock Movement Summary (recent ins/outs, any unusual activity)\n3. Missing Price Alert (list items with no price set and the resulting blind spot in valuation)\n4. Low-stock financial risk note\n5. Summary note for Manager Agent\n\nAll amounts in PKR.`
+    );
+    setStatus('accountant','working',90);
+    log('accountant','Valuation report complete','ok');
+    setTaskStatus('accountant','done');
+    setStatus('accountant','done',100);
+    if(selectedAgent==='accountant'){
+      document.getElementById('output-box').textContent=result;
+      document.getElementById('active-agent-label').textContent='Accountant Agent';
+    }
+    return result;
+  }catch(e){
+    setStatus('accountant','error',0);
+    log('accountant','Error: '+e.message,'error');
+    setTaskStatus('accountant','error');
+    return null;
+  }
+}
+
+async function runManagerAgent(mkt,sal,acc){
+  setStatus('manager','working',20);
+  log('manager','Auditing all three operational agents...');
+  setTaskStatus('manager','running');
+  setStatus('manager','working',55);
+  const inv=buildInventorySummary();
+  try{
+    const result=await callClaude(
+      'You are the Manager Agent for NexGen Solar, DHA Karachi. You audit operational agents, ensure alignment, and escalate issues to the CEO with clear action items.',
+      `Inventory snapshot:\n${inv}\n\nMarketing Agent: ${mkt?'Completed — content generated for all channels':'FAILED'}\nSales Agent: ${sal?'Completed — leads followed up, quotations sent':'FAILED'}\nAccountant Agent: ${acc?'Completed — valuation and movement report done':'FAILED'}\n\nProduce Manager's daily report:\n1. Agent alignment summary\n2. Issues or misalignments found (especially products missing prices — this blocks Marketing and Sales)\n3. Corrective actions delegated\n4. Inventory reorder recommendations based on low stock\n5. Brief for CEO Agent`
+    );
+    setStatus('manager','working',90);
+    log('manager','All 3 agents audited — report ready for CEO','ok');
+    setTaskStatus('manager','done');
+    setStatus('manager','done',100);
+    if(selectedAgent==='manager'){
+      document.getElementById('output-box').textContent=result;
+      document.getElementById('active-agent-label').textContent='Manager Agent';
+    }
+    return result;
+  }catch(e){
+    setStatus('manager','error',0);
+    log('manager','Error: '+e.message,'error');
+    setTaskStatus('manager','error');
+    return null;
+  }
+}
+
+async function generateCEOReport(){
+  const btn=document.getElementById('btn-report');
+  btn.disabled=true;
+  setStatus('ceo','working',30);
+  log('ceo','Compiling 9 PM daily report for Shafay...');
+  setTaskStatus('ceo','running');
+  const stockValue=document.getElementById('m-rev').textContent;
+  const skuCount=document.getElementById('m-sku').textContent;
+  const posts=document.getElementById('m-posts').textContent;
+  const alerts=document.getElementById('m-errors').textContent;
+  const inv=buildInventorySummary();
+  try{
+    const result=await callClaude(
+      'You are the CEO Agent of NexGen Solar, DHA Karachi. You produce a sharp, owner-ready nightly report for Shafay. Begin with a WhatsApp-ready 5-line summary, then a full report. Be direct and actionable.',
+      `Date: ${new Date().toLocaleDateString('en-PK',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}\n\nOperations summary:\n- Inventory: ${skuCount} SKUs, total value ${stockValue}\n- Social posts created: ${posts}\n- Items missing price: ${alerts}\n\nInventory detail:\n${inv}\n\nAgent statuses:\n- Marketing: ${document.getElementById('st-marketing').querySelector('.slabel').textContent}\n- Sales: ${document.getElementById('st-sales').querySelector('.slabel').textContent}\n- Accountant: ${document.getElementById('st-accountant').querySelector('.slabel').textContent}\n- Manager: ${document.getElementById('st-manager').querySelector('.slabel').textContent}\n\nProduce:\n1. WhatsApp summary for Shafay (5 lines max, urgent items first — especially missing prices blocking sales)\n2. Full operational report\n3. Items requiring Shafay's decision\n4. Tomorrow's top 3 priorities`
+    );
+    setStatus('ceo','done',100);
+    log('ceo','9 PM report complete — ready for Shafay','ok');
+    setTaskStatus('ceo','done');
+    document.getElementById('report-box').textContent=result;
+    showTab('report',document.querySelectorAll('.stab')[5]);
+  }catch(e){
+    setStatus('ceo','error',0);
+    log('ceo','Report error: '+e.message,'error');
+  }
+  btn.disabled=false;
+}
+
+async function runSingleAgent(){
+  if(cycleRunning){log('system','Cycle running — please wait');return;}
+  if(!SHEETS_URL){log('system','Connect your inventory source first','error');return;}
+  showTab('output',document.querySelectorAll('.stab')[4]);
+  document.getElementById('output-box').textContent='Calling AI...';
+  if(selectedAgent==='marketing') await runMarketingAgent();
+  else if(selectedAgent==='sales') await runSalesAgent();
+  else if(selectedAgent==='accountant') await runAccountantAgent();
+  else if(selectedAgent==='manager') await runManagerAgent(true,true,true);
+  else if(selectedAgent==='ceo') await generateCEOReport();
+}
+
+async function startDailyCycle(){
+  if(cycleRunning) return;
+  if(!SHEETS_URL){log('system','Connect your inventory source first','error');return;}
+  cycleRunning=true;
+  const btn=document.getElementById('btn-start');
+  btn.disabled=true;
+  taskState=JSON.parse(JSON.stringify(TASKS_TEMPLATE));
+  renderTasks();
+  const badge=document.getElementById('cycle-badge');
+  badge.textContent='Cycle running...';
+  badge.style.background='rgba(61,139,219,0.15)';badge.style.color='#5DA3E5';
+
+  log('system','=== Daily cycle starting ===');
+  await loadInventory();
+  await new Promise(r=>setTimeout(r,500));
+
+  log('ceo','Briefing all agents for today\'s operations...');
+  setStatus('ceo','working',15);
+  setStatus('manager','working',10);
+  setStatus('marketing','waiting',0);
+  setStatus('sales','waiting',0);
+  setStatus('accountant','waiting',0);
+  await new Promise(r=>setTimeout(r,600));
+
+  log('system','--- Phase 1: Operational agents ---');
+  const [mkt,sal,acc]=await Promise.all([
+    runMarketingAgent(),
+    (async()=>{await new Promise(r=>setTimeout(r,300));return runSalesAgent();})(),
+    (async()=>{await new Promise(r=>setTimeout(r,600));return runAccountantAgent();})(),
+  ]);
+
+  await new Promise(r=>setTimeout(r,400));
+  log('system','--- Phase 2: Manager audit ---');
+  const mgr=await runManagerAgent(mkt,sal,acc);
+
+  await new Promise(r=>setTimeout(r,400));
+  log('system','--- Phase 3: CEO report ---');
+  await generateCEOReport();
+
+  log('system','=== All agents complete ===','ok');
+  badge.textContent='Cycle complete ✓';
+  badge.style.background='rgba(46,163,113,0.15)';badge.style.color='#5BC98A';
+  cycleRunning=false;
+  btn.disabled=false;
+}
+
+// Init
+window.addEventListener('load', ()=>{
+  if(SHEETS_URL){
+    document.getElementById('sheets-url-input').value = SHEETS_URL;
+    loadInventory();
+  }
+});
+</script>
+</body>
+</html>
